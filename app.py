@@ -7,9 +7,9 @@ import json
 import random
 from datetime import datetime
 import urllib.parse
-import pytz  # 🌍 시차 해결을 위한 라이브러리 추가
+import pytz  # 🌍 시차 해결을 위한 라이브러리 필수!
 
-# --- 1. 🎨 디자인 설정 (상단 정렬 & 굵은 입력창 & 겹침 방지) ---
+# --- 1. 🎨 디자인 설정 (굵은 테두리 완벽 복구 & 겹침 방지) ---
 st.set_page_config(page_title="BBC News Quiz", page_icon="🌟", layout="wide")
 
 st.markdown("""
@@ -18,40 +18,54 @@ st.markdown("""
     [data-testid="stSidebar"] { display: none; }
     
     h1, h2, h3, p, span, div { color: white !important; }
-    h1 { color: #FFD700 !important; text-align: center; font-weight: bold; margin-top: 30px; margin-bottom: 30px; }
+    h1 { color: #FFD700 !important; text-align: center; font-weight: bold; margin-top: 50px; margin-bottom: 40px; }
 
-    /* 로그인/입력 섹션 공통 스타일 */
-    .login-section { max-width: 600px; margin: 0 auto; text-align: left; }
+    /* 🌟 로그인 영역 */
+    .login-section {
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: left;
+    }
     
-    /* 🌟 입력창 짤림 방지 및 두께 설정 */
-    [data-testid="stVirtualizedPage"] .element-container, .stTextInput {
-        height: auto !important;
-        overflow: visible !important;
-        margin-bottom: 10px !important;
+    /* 🌟 [최종 해결책 복구] 부모 요소의 높이를 강제로 늘려서 잘림 방지 */
+    [data-testid="stVirtualizedPage"] .element-container,
+    .stTextInput {
+        height: 160px !important; /* 박스 전체가 들어갈 높이를 아예 고정 */
+        overflow: visible !important; /* 넘치는 부분이 보여야 함 */
+        margin-bottom: 20px !important;
+    }
+
+    .stTextInput > div {
+        height: 100px !important; /* 입력창 자체의 높이 확보 */
+        background-color: transparent !important;
     }
 
     .stTextInput > div > div > input {
         background-color: #1A1C23 !important;
         color: white !important;
-        border: 3px solid #FFD700 !important;
+        border: 3px solid #FFD700 !important; /* 테두리를 더 확실하게 3px로 */
         border-radius: 12px !important;
-        height: 70px !important;
-        font-size: 1.5rem !important;
+        
+        height: 80px !important; /* 입력창 내부 높이 */
+        font-size: 1.6rem !important;
         padding: 0 20px !important;
+        
         width: 100% !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3); /* 아래쪽 그림자를 줘서 입체감 부여 */
     }
 
-    /* 버튼 스타일 (입력창과 간격 확보) */
+    /* 🌟 [핵심 수정 복구] 게임 시작하기 버튼을 아래로 확실히 내림 */
     .stButton > button {
         background-color: #FFD700 !important;
         color: #0E1117 !important;
         font-weight: bold !important;
-        font-size: 1.2rem !important;
+        font-size: 1.3rem !important;
         border-radius: 12px !important;
         width: 100% !important;
-        height: 55px !important;
-        margin-top: 25px !important;
+        height: 60px !important;
         border: none !important;
+        
+        margin-top: 40px !important; /* 입력창과 겹치지 않게 40픽셀이나 띄움 */
     }
 
     /* 🏆 랭킹 박스 스타일 */
@@ -65,7 +79,7 @@ st.markdown("""
     .ranking-item { font-size: 0.95rem; margin-bottom: 8px; border-bottom: 1px dashed #333; padding-bottom: 4px; }
 
     /* 퀴즈 카드 디자인 */
-    .main-container { width: 100%; max-width: 800px; margin: 0 auto; padding-top: 10px; }
+    .main-container { width: 100%; max-width: 800px; margin: 0 auto; padding-top: 20px; }
     .quiz-card { background-color: #262730; border-radius: 20px; padding: 35px; border: 1px solid #444; margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
@@ -85,7 +99,6 @@ db = st.session_state.db
 def get_rank_html():
     rank_html = f'<div class="ranking-box"><div class="ranking-title">🏆 오늘 실시간 순위</div>'
     try:
-        # 오늘 날짜와 일치하는 데이터만 점수순으로 가져옴
         rankers = db.collection("quiz_users")\
                     .where("last_date", "==", today)\
                     .order_by("score", direction=firestore.Query.DESCENDING)\
@@ -103,7 +116,6 @@ def get_rank_html():
             
     except Exception as e:
         rank_html += '<div class="ranking-item" style="color:#FF6347;">랭킹 로딩 중...</div>'
-        # 색인 미생성 시 로그에 링크가 뜹니다 (Streamlit Cloud Logs 확인 필요)
         print(f"Index error or data error: {e}")
 
     rank_html += '</div>'
@@ -144,7 +156,6 @@ if not st.session_state.registered_nickname:
             user_ref = db.collection("quiz_users").document(st.session_state.registered_nickname).get()
             if user_ref.exists:
                 d = user_ref.to_dict()
-                # 시차 해결로 인해 서버와 클라이언트 날짜가 일치하게 됨
                 st.session_state.score = d.get("score", 0) if d.get("last_date") == today else 0
                 st.session_state.solved = d.get("solved_ids", [])
             else:
@@ -154,6 +165,7 @@ if not st.session_state.registered_nickname:
     st.markdown('</div>', unsafe_allow_html=True)
 
 else:
+    # 게임 화면
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
     st.title("🌟 BBC 실시간 뉴스 영어 퀴즈")
     st.markdown(f"### 🔥 **{st.session_state.registered_nickname}**님 (오늘 **{st.session_state.score}**점)")
