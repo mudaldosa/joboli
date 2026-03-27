@@ -15,58 +15,54 @@ st.set_page_config(page_title="BBC News Quiz", page_icon="🌟", layout="wide")
 
 st.markdown("""
 <style>
-    /* 기본 배경 및 글꼴 */
     [data-testid="stAppViewContainer"] { background-color: #0E1117; color: white; }
     [data-testid="stSidebar"] { display: none; }
-    h1, h2, h3, p, span { color: white !important; font-family: 'Pretendard', sans-serif; }
+    h1, h2, h3, h4, p, span { color: white !important; font-family: 'Pretendard', sans-serif; }
     
-    /* 제목 디자인 */
-    h1 { color: #FFD700 !important; text-align: center; font-weight: bold; margin-bottom: 20px; font-size: 2rem !important; }
+    h1 { color: #FFD700 !important; text-align: center; font-weight: bold; margin-bottom: 20px; font-size: 1.8rem !important; }
 
-    /* 📱 반응형 컨테이너: 모바일에서는 꽉 차게, PC에서는 적당하게 */
     .main-wrapper { max-width: 700px; margin: 0 auto; padding: 10px; }
 
-    /* 입력창 디자인: 고정 높이 대신 패딩으로 조절 (짤림 방지) */
+    /* 입력창 디자인 */
     .stTextInput > div > div > input {
         background-color: #1A1C23 !important;
         color: white !important;
         border: 2px solid #FFD700 !important;
         border-radius: 12px !important;
-        padding: 15px 20px !important;
-        font-size: 1.2rem !important;
-        height: auto !important;
+        padding: 12px 15px !important;
+        font-size: 1.1rem !important;
     }
 
-    /* 버튼 디자인: 모바일 터치 최적화 */
+    /* 버튼 디자인 */
     .stButton > button {
         background-color: #FFD700 !important;
         color: #0E1117 !important;
         font-weight: bold !important;
         border-radius: 12px !important;
         width: 100% !important;
-        height: 55px !important;
-        font-size: 1.1rem !important;
-        margin-top: 10px;
+        height: 50px !important;
+        font-size: 1rem !important;
         border: none !important;
+        margin-top: 5px;
     }
 
-    /* 🏆 랭킹 박스: 모바일에서는 하단이나 상단에 자연스럽게 배치 */
+    /* 🏆 랭킹 박스 */
     .ranking-container {
         background-color: #1A1C23; border: 2px solid #FFD700;
         border-radius: 15px; padding: 15px; margin-bottom: 20px;
     }
     .ranking-title { color: #FFD700 !important; font-weight: bold; text-align: center; border-bottom: 1px solid #444; margin-bottom: 10px; }
-    .ranking-item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; }
+    .ranking-item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.95rem; border-bottom: 1px dashed #333; padding-bottom: 3px; }
 
     /* 퀴즈 카드 */
-    .quiz-card { background-color: #262730; border-radius: 20px; padding: 25px; border: 1px solid #444; margin-bottom: 20px; }
+    .quiz-card { background-color: #262730; border-radius: 20px; padding: 25px; border: 1px solid #444; margin-bottom: 15px; }
 
-    /* ❌ 오답 X 표시 */
+    /* ❌ 오답 X 표시 애니메이션 */
     .wrong-x {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        font-size: 10rem; color: #FF6347; z-index: 10000; animation: fade-out 1s forwards;
+        font-size: 12rem; color: #FF6347; z-index: 10000; animation: fade-out 1s forwards; pointer-events: none;
     }
-    @keyframes fade-out { 0% {opacity: 1; scale: 1.2;} 100% {opacity: 0; scale: 0.8;} }
+    @keyframes fade-out { 0% {opacity: 1; transform: translate(-50%, -50%) scale(1.2);} 100% {opacity: 0; transform: translate(-50%, -50%) scale(0.8);} }
 </style>
 """, unsafe_allow_html=True)
 
@@ -81,11 +77,10 @@ if "db" not in st.session_state:
 
 db = st.session_state.db
 
-# --- 3. 🏆 랭킹 로직 (색인 없이 무조건 뜨는 방식) ---
+# --- 3. 🏆 랭킹 로직 (색인 없이 즉시 반영) ---
 def display_ranking():
     st.markdown('<div class="ranking-container"><div class="ranking-title">🏆 오늘의 TOP 5</div>', unsafe_allow_html=True)
     try:
-        # 색인 에러를 피하기 위해 정렬 없이 가져온 후 파이썬에서 정렬
         docs = db.collection("quiz_users").where("last_date", "==", today).limit(50).stream()
         data = [d.to_dict() | {"name": d.id} for d in docs]
         sorted_data = sorted(data, key=lambda x: x.get('score', 0), reverse=True)[:5]
@@ -95,12 +90,12 @@ def display_ranking():
         else:
             medals = ["🥇", "🥈", "🥉", "4.", "5."]
             for i, user in enumerate(sorted_data):
-                st.markdown(f'<div class="ranking-item"><span>{medals[i]} {user["name"]}</span><span>{user["score"]}점</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="ranking-item"><span>{medals[i]} {user["name"]}</span><span><b>{user["score"]}점</b></span></div>', unsafe_allow_html=True)
     except:
-        st.markdown('<div style="text-align:center;">순위 로딩 중...</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;">순위 데이터를 불러오는 중...</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 4. 🧠 핵심 기능 ---
+# --- 4. 🧠 퀴즈 로직 ---
 def translate_to_ko(text):
     try:
         url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=" + urllib.parse.quote(text)
@@ -123,7 +118,7 @@ st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
 st.title("🌟 BBC 뉴스 영어 퀴즈")
 
 if 'registered_nickname' not in st.session_state:
-    display_ranking() # 로그인 전 랭킹 노출
+    display_ranking()
     st.subheader("닉네임 입력 🐼")
     nick = st.text_input("nickname", label_visibility="collapsed", placeholder="닉네임을 입력하세요...")
     if st.button("게임 시작"):
@@ -133,17 +128,15 @@ if 'registered_nickname' not in st.session_state:
             if user_doc.exists:
                 d = user_doc.to_dict()
                 st.session_state.score = d.get("score", 0) if d.get("last_date") == today else 0
-                st.session_state.solved = d.get("solved_ids", [])
             else:
                 st.session_state.score = 0
-                st.session_state.solved = []
             st.rerun()
 else:
-    # 게임 중 화면
     st.markdown(f"### 🔥 **{st.session_state.registered_nickname}**님 ({st.session_state.score}점)")
     
     if 'current_quiz' not in st.session_state:
-        with st.spinner("새 뉴스 가져오는 중..."):
+        st.session_state.show_hint = False # 새 문제일 때 힌트 초기화
+        with st.spinner("최신 뉴스 가져오는 중..."):
             q = get_bbc_quiz()
             if q: st.session_state.current_quiz = q
             else: st.error("뉴스를 불러오지 못했습니다.")
@@ -152,22 +145,25 @@ else:
         q = st.session_state.current_quiz
         ans = q['answer']
         
-        # 퀴즈 카드
-        display_word = ans if st.session_state.get('game_over') else ("_ " * len(ans))
+        # 힌트 로직: 첫 글자 노출 여부
+        display_word = (ans[0] + " _" * (len(ans) - 1)) if st.session_state.show_hint else ("_ " * len(ans))
         display_text = q['text'].replace(ans, f" [ {display_word} ] ")
         
         st.markdown(f'<div class="quiz-card"><h4>{display_text}</h4><p style="color:#AAA; font-size:0.9rem; margin-top:10px; border-top:1px solid #444; padding-top:10px;">💡 {q["ko"]}</p></div>', unsafe_allow_html=True)
+        
+        if st.session_state.show_hint:
+            st.info(f"🔍 단어 뜻: {q['word_ko']}")
         
         user_ans = st.text_input("정답 입력:", key="quiz_input", placeholder="영단어를 입력하세요")
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("정답 확인"):
+            if st.button("✅ 정답 확인"):
                 if user_ans.lower().strip() == ans.lower().strip():
                     st.balloons()
                     st.session_state.score += 1
                     db.collection("quiz_users").document(st.session_state.registered_nickname).set({
-                        "score": st.session_state.score, "last_date": today, "solved_ids": st.session_state.get('solved', []) + [q['text'][:20]]
+                        "score": st.session_state.score, "last_date": today
                     })
                     del st.session_state.current_quiz
                     st.rerun()
@@ -176,11 +172,16 @@ else:
                     time.sleep(1)
                     st.error("틀렸습니다! 다시 시도해보세요.")
         with col2:
-            if st.button("다음 문제"):
-                del st.session_state.current_quiz
-                st.rerun()
+            if not st.session_state.show_hint:
+                if st.button("💡 힌트 보기"):
+                    st.session_state.show_hint = True
+                    st.rerun()
+            else:
+                if st.button("⏭️ 다음 문제"):
+                    del st.session_state.current_quiz
+                    st.rerun()
     
     st.write("---")
-    display_ranking() # 하단에 랭킹 유지
+    display_ranking()
 
 st.markdown('</div>', unsafe_allow_html=True)
