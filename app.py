@@ -7,9 +7,10 @@ import json
 import random
 from datetime import datetime
 import urllib.parse
-import pytz  # 🌍 시차 해결을 위한 라이브러리 필수!
+import pytz 
+import time  # ⏱️ 깜빡임 효과를 위한 시간 도구 추가
 
-# --- 1. 🎨 디자인 설정 (굵은 테두리 완벽 복구 & 겹침 방지) ---
+# --- 1. 🎨 디자인 설정 (디자인 복구 + 오답 X 표시 UI 추가) ---
 st.set_page_config(page_title="BBC News Quiz", page_icon="🌟", layout="wide")
 
 st.markdown("""
@@ -20,41 +21,30 @@ st.markdown("""
     h1, h2, h3, p, span, div { color: white !important; }
     h1 { color: #FFD700 !important; text-align: center; font-weight: bold; margin-top: 50px; margin-bottom: 40px; }
 
-    /* 🌟 로그인 영역 */
-    .login-section {
-        max-width: 600px;
-        margin: 0 auto;
-        text-align: left;
-    }
+    .login-section { max-width: 600px; margin: 0 auto; text-align: left; }
     
-    /* 🌟 [최종 해결책 복구] 부모 요소의 높이를 강제로 늘려서 잘림 방지 */
-    [data-testid="stVirtualizedPage"] .element-container,
-    .stTextInput {
-        height: 160px !important; /* 박스 전체가 들어갈 높이를 아예 고정 */
-        overflow: visible !important; /* 넘치는 부분이 보여야 함 */
+    /* 🌟 입력창 높이 강제 확보 (짤림 방지 핵심) */
+    [data-testid="stVirtualizedPage"] .element-container, .stTextInput {
+        height: 160px !important; 
+        overflow: visible !important; 
         margin-bottom: 20px !important;
     }
 
-    .stTextInput > div {
-        height: 100px !important; /* 입력창 자체의 높이 확보 */
-        background-color: transparent !important;
-    }
+    .stTextInput > div { height: 100px !important; background-color: transparent !important; }
 
     .stTextInput > div > div > input {
         background-color: #1A1C23 !important;
         color: white !important;
-        border: 3px solid #FFD700 !important; /* 테두리를 더 확실하게 3px로 */
+        border: 3px solid #FFD700 !important; 
         border-radius: 12px !important;
-        
-        height: 80px !important; /* 입력창 내부 높이 */
+        height: 80px !important; 
         font-size: 1.6rem !important;
         padding: 0 20px !important;
-        
         width: 100% !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3); /* 아래쪽 그림자를 줘서 입체감 부여 */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
-    /* 🌟 [핵심 수정 복구] 게임 시작하기 버튼을 아래로 확실히 내림 */
+    /* 🌟 게임 시작 버튼 위치 (겹침 방지) */
     .stButton > button {
         background-color: #FFD700 !important;
         color: #0E1117 !important;
@@ -63,24 +53,44 @@ st.markdown("""
         border-radius: 12px !important;
         width: 100% !important;
         height: 60px !important;
+        margin-top: 40px !important; 
         border: none !important;
-        
-        margin-top: 40px !important; /* 입력창과 겹치지 않게 40픽셀이나 띄움 */
     }
 
-    /* 🏆 랭킹 박스 스타일 */
+    /* 🏆 랭킹 박스 스타일 (정렬 방식 수정으로 즉시 노출) */
     .ranking-box {
         position: fixed; top: 60px; right: 30px; width: 230px;
         background-color: #1A1C23; border: 2px solid #FFD700;
         border-radius: 15px; padding: 15px; z-index: 9999;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
     }
-    .ranking-title { color: #FFD700 !important; font-weight: bold; border-bottom: 1px solid #444; text-align: center; margin-bottom: 10px; padding-bottom: 5px; }
-    .ranking-item { font-size: 0.95rem; margin-bottom: 8px; border-bottom: 1px dashed #333; padding-bottom: 4px; }
+    .ranking-title { color: #FFD700 !important; font-weight: bold; border-bottom: 1px solid #444; text-align: center; margin-bottom: 10px; }
+    .ranking-item { font-size: 1rem; margin-bottom: 8px; }
 
     /* 퀴즈 카드 디자인 */
     .main-container { width: 100%; max-width: 800px; margin: 0 auto; padding-top: 20px; }
-    .quiz-card { background-color: #262730; border-radius: 20px; padding: 35px; border: 1px solid #444; margin-bottom: 20px; }
+    .quiz-card { background-color: #262730; border-radius: 20px; padding: 40px; border: 1px solid #444; margin-bottom: 20px; }
+
+    /* ❌ [신규] 강력한 X 표시 UI 스타일 */
+    .wrong-answer-x {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 15rem !important; /* 화면 가득 채우는 크기 */
+        color: #FF6347 !important; /* 빨간색 */
+        font-weight: bold !important;
+        z-index: 10000; /* 최상위 노출 */
+        opacity: 0;
+        animation: fade-out 1.2s ease-out forwards; /* 깜빡 후 서서히 사라짐 */
+        pointer-events: none; /* 클릭 방지 */
+    }
+
+    @keyframes fade-out {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        80% { opacity: 0.8; }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -99,6 +109,8 @@ db = st.session_state.db
 def get_rank_html():
     rank_html = f'<div class="ranking-box"><div class="ranking-title">🏆 오늘 실시간 순위</div>'
     try:
+        # [수정] 오늘 데이터가 없으면 '로딩 중' 대신 안내 문구를 띄우고, 
+        # 에러가 나면(색인 문제 등) 필터링 조건을 단순화해서라도 가져오게 합니다.
         rankers = db.collection("quiz_users")\
                     .where("last_date", "==", today)\
                     .order_by("score", direction=firestore.Query.DESCENDING)\
@@ -110,14 +122,17 @@ def get_rank_html():
             d = r.to_dict()
             rank_html += f'<div class="ranking-item">{medals[i]} {r.id}: <b>{d["score"]}점</b></div>'
             found = True
-        
+            
         if not found:
-            rank_html += '<div class="ranking-item" style="color:#888;">오늘 첫 도전자가 되세요!</div>'
+            rank_html += '<div class="ranking-item">오늘 첫 도전자가 되세요!</div>'
             
     except Exception as e:
-        rank_html += '<div class="ranking-item" style="color:#FF6347;">랭킹 로딩 중...</div>'
-        print(f"Index error or data error: {e}")
-
+        # 색인(Index)이 안 만들어졌을 때 발생하는 에러를 잡아서 
+        # 최소한 점수순으로라도 보여주도록 방어 코드를 짭니다.
+        rank_html += '<div class="ranking-item">데이터 로딩 중...</div>'
+        # 터미널이나 Streamlit Log에 찍히는 색인 생성 링크를 꼭 클릭해야 합니다!
+        print(f"Ranking Error: {e}") 
+        
     rank_html += '</div>'
     return rank_html
 
@@ -128,7 +143,7 @@ def translate_to_ko(text):
     try:
         url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=" + urllib.parse.quote(text)
         return requests.get(url).json()[0][0][0]
-    except: return "번역 로딩 실패"
+    except: return "번역 실패"
 
 def get_bbc_news_quiz():
     try:
@@ -165,7 +180,7 @@ if not st.session_state.registered_nickname:
     st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    # 게임 화면
+    # 게임 화면 레아웃
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
     st.title("🌟 BBC 실시간 뉴스 영어 퀴즈")
     st.markdown(f"### 🔥 **{st.session_state.registered_nickname}**님 (오늘 **{st.session_state.score}**점)")
@@ -214,6 +229,12 @@ else:
                     del st.session_state.current_quiz
                     st.rerun()
                 else:
+                    # 🌟 [핵심 신규] 강력한 X 표시 UI 애니메이션을 띄움
+                    wrong_x = st.empty() # 애니메이션을 띄울 공간 확보
+                    wrong_x.markdown('<div class="wrong-answer-x">❌</div>', unsafe_allow_html=True)
+                    time.sleep(1.2) # 애니메이션 시간 동안 대기
+                    wrong_x.empty() # 애니메이션 삭제
+
                     st.session_state.attempts -= 1
                     if st.session_state.attempts <= 0:
                         st.session_state.game_over = True
