@@ -102,7 +102,21 @@ def get_bbc_quiz():
         soup = BeautifulSoup(requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).text, 'html.parser')
         titles = [h.get_text().strip() for h in soup.find_all('h2') if 7 < len(h.get_text().split()) < 15]
         full_text = random.choice(titles)
-        words = [w.strip(",.!'\"") for w in full_text.split() if len(w.strip(",.!'\"")) >= 5]
+        
+        # 고유명사 필터링: 문장 중간에 대문자로 시작하는 단어는 이름/지명일 확률이 높으므로 제외
+        words = []
+        original_words = full_text.split()
+        for i, w in enumerate(original_words):
+            clean_w = w.strip(",.!'\"")
+            # 1. 길이 5자 이상 2. 첫 글자가 소문자(고유명사 제외) 혹은 문장 첫 단어인 경우만 선택
+            if len(clean_w) >= 5:
+                if i == 0 or clean_w[0].islower():
+                    words.append(clean_w)
+        
+        # 만약 필터링 후 남은 단어가 없다면 일반 단어 중 선택
+        if not words:
+            words = [w.strip(",.!'\"") for w in original_words if len(w.strip(",.!'\"")) >= 5]
+            
         answer = random.choice(words)
         return {"text": full_text, "answer": answer, "ko": translate_to_ko(full_text), "word_ko": translate_to_ko(answer)}
     except: return None
@@ -130,8 +144,12 @@ else:
     
     if 'current_quiz' not in st.session_state:
         st.session_state.show_hint = False
-        st.session_state.wrong_count = 0 # 오답 횟수 초기화
+        st.session_state.wrong_count = 0
         st.session_state.game_over = False
+        # 입력창 초기화를 위해 세션 스테이트의 입력값 삭제
+        if "quiz_input" in st.session_state:
+            st.session_state["quiz_input"] = ""
+            
         with st.spinner("최신 뉴스 가져오는 중..."):
             q = get_bbc_quiz()
             if q: st.session_state.current_quiz = q
@@ -141,10 +159,8 @@ else:
         q = st.session_state.current_quiz
         ans = q['answer']
         
-        # 기회 표시
         st.markdown(f"<p style='color:#FF6347; font-weight:bold;'>❤️ 남은 기회: {3 - st.session_state.wrong_count}번</p>", unsafe_allow_html=True)
 
-        # 단어 표시 로직 (정답 공개 시에는 정답 전체 노출)
         if st.session_state.game_over:
             display_word = ans
         else:
@@ -163,9 +179,9 @@ else:
                 del st.session_state.current_quiz
                 st.rerun()
         else:
+            # ⭐️ 포인트 1: value 매개변수를 활용해 세션 스테이트와 연동 (초기화 가능하게 함)
             user_ans = st.text_input("정답 입력:", key="quiz_input", placeholder="영단어를 입력하세요")
             
-            # 버튼 3종 세트 (상시 노출)
             btn_col1, btn_col2, btn_col3 = st.columns(3)
             with btn_col1:
                 if st.button("✅ 확인"):
@@ -175,6 +191,7 @@ else:
                         db.collection("quiz_users").document(st.session_state.registered_nickname).set({
                             "score": st.session_state.score, "last_date": today
                         })
+                        # 정답 시 퀴즈 삭제 -> 리런 -> 위쪽 로직에서 quiz_input 초기화됨
                         del st.session_state.current_quiz
                         st.rerun()
                     else:
